@@ -26,6 +26,8 @@
 
 #ifdef AD7606_RANGE_SET
 #define AD7606_RANGE            GET_PIN(A, 1) //低电平的量程是±5V 高电平是±10V
+#else
+#define AD7606_RANGE            PIN_LOW
 #endif
 
 #define AD7606_CS_GPIO          GPIOC
@@ -51,13 +53,15 @@ int sample_ad7606(void)
     {
      adcbuff_now[i] = (rt_int16_t)adc_buff[i*2] * 256 + (rt_int16_t)adc_buff[i*2+1] ;
 
-     if(AD7606_RANGE_PIN)
+     if(AD7606_RANGE)
      {
-       adcbuff_now[i] = adcbuff_now[i] * 5000 / 32767;
+       /*range is 10V*/
+       adcbuff_now[i] = adcbuff_now[i] * 10000 / 32767;
      }
      else
      {
-       adcbuff_now[i] = adcbuff_now[i] * 10000 / 32767;
+       /*range is 5V*/
+       adcbuff_now[i] = adcbuff_now[i] * 5000 / 32767;
      }
      
      rt_thread_delay(100);
@@ -68,36 +72,33 @@ int sample_ad7606(void)
 }
 MSH_CMD_EXPORT(sample_ad7606, sample ad7606);
 
-int rt_hw_ad7606_init(void)
+int rt_hw_ad7606_port(void)
 {
+    struct ad7606_config config;
+    
     /*attach device*/
     rt_hw_spi_device_attach(SPI_BUS, AD7606_SPI_DEVICE_NAME, AD7606_CS_GPIO, AD7606_CS_PIN);
-
-    dev = rt_calloc(1, sizeof(struct ad7606_device));
+    
     {
-      dev->gpio.busy = AD7606_BUSY;
-      dev->gpio.rst  = AD7606_RST;
-      dev->gpio.conv = AD7606_CONV;
+      config.busy = AD7606_BUSY;
+      config.rst  = AD7606_RST;
+      config.conv = AD7606_CONV;
 
 #ifdef AD7606_RANGE_SET
-      dev->gpio.range= AD7606_RANGE;
+      config.range= AD7606_RANGE;
 #endif
 
 #ifdef AD7606_RESOLUUTION_SET
-      dev->gpio.os0  = AD7606_OS0;
-      dev->gpio.os1  = AD7606_OS1;
-      dev->gpio.os2  = AD7606_OS2;
+      config.os0  = AD7606_OS0;
+      config.os1  = AD7606_OS1;
+      config.os2  = AD7606_OS2;
 #endif
-        
-      dev->device_name  = AD7606_SPI_DEVICE_NAME;
     }
-
+    
     /*init ad7606*/
-    dev = ad7606_init(dev);
+    dev = rt_hw_ad7606_init(AD7606_SPI_DEVICE_NAME,&config);
     if(dev == RT_NULL)
     {
-     ad7606_deinit(dev);
-     
      LOG_E("ad7606 initialiation faild!");
     
      return RT_ERROR;
@@ -105,4 +106,4 @@ int rt_hw_ad7606_init(void)
     
     return RT_EOK;
 }
-INIT_APP_EXPORT(rt_hw_ad7606_init);
+INIT_APP_EXPORT(rt_hw_ad7606_port);
